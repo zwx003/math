@@ -1,0 +1,105 @@
+import matplotlib.pyplot as plt
+import csv
+"""让标签能显示中文"""
+plt.rcParams['font.sans-serif']=['SimHei']
+plt.rcParams['axes.unicode_minus']=False
+
+# 定义节点的坐标和权重
+nodex = [0, 3, 1, 5, 4, 3, 0, 7, 9, 10, 14, 17, 14, 12, 10, 19, 2, 6, 11, 15, 7, 22, 21, 27, 15, 15, 20,
+         21, 24, 25, 28]
+nodey = [0, 2, 5, 4, 7, 11, 8, 9, 6, 2, 0, 3, 6, 9, 12, 9, 16, 18, 17, 12, 14, 5, 0, 9, 19, 14, 17,
+         13, 20, 16, 18]
+node_weight = [0, 8, 8.2, 6, 5.5, 4.5, 3, 7.2, 2.3, 1.4, 6.5, 4.1, 12.7, 5.8, 3.8, 3.4, 3.5, 5.8, 7.5,
+               7.8, 4.6, 6.2, 6.8, 2.4, 7.6, 9.6, 10, 12, 6.0, 8.1, 4.2]
+
+# 计算节点间的距离
+node_distance = [[0 for _ in range(len(nodex))] for _ in range(len(nodex))]
+for i in range(len(nodex)):
+    for j in range(len(nodex)):
+        num = abs(nodex[i] - nodex[j]) + abs(nodey[i] - nodey[j])
+        node_distance[i][j] = num
+
+# 配置参数
+work_time = 6.0  # 工作时间为6小时
+delivery_speed = 25  # 配送速度为25km/h
+stay_time = 1 / 6  # 停留时间为10分钟
+
+# 查找下一个节点
+def find_node(current_node, visited, node_weight, node_distance, highest_weight, remain_time):
+    min_dist = float('inf')
+    nearest_node = None
+    need_time = 0.0
+    sign = 1  # 判断剩余时间是否为负
+
+    for i in range(len(node_distance)):
+        if i != current_node and i not in visited and node_weight[i] <= highest_weight:
+            near_distance = abs(nodex[current_node] - nodex[i]) + abs(nodey[current_node] - nodey[i])
+            return_time = (nodex[i] + nodey[i]) / delivery_speed
+            need_time += near_distance / delivery_speed + return_time + stay_time
+            if remain_time - need_time <= 0:
+                sign = 0
+            if remain_time - need_time >= 0:
+                if node_distance[current_node][i] < min_dist:
+                    min_dist = node_distance[current_node][i]
+                    nearest_node = i
+    return nearest_node, sign
+
+routes = []
+visited = set()
+highest_weight = 25
+delivery_distances = []  # 每一趟的配送距离组
+
+# 计算每个配送员的路线
+while len(visited) < len(nodex):
+    remain_time = 6.0  # 剩余工作时间
+    current_node = 0
+    route = [current_node]
+    sign = 1
+    each_distance = 0
+
+    while sign != 0:
+        if len(visited) == len(nodex):
+            break
+
+        current_weight = node_weight[current_node]
+        while True:
+            nearest_node, sign = find_node(
+                current_node, visited, node_weight, node_distance, highest_weight - current_weight, remain_time)
+            if nearest_node is None:
+                break
+            near_distance = abs(nodex[current_node] - nodex[nearest_node]) + abs(nodey[current_node] - nodey[nearest_node])
+            each_distance += near_distance
+            remain_time -= near_distance / delivery_speed + stay_time
+            route.append(nearest_node)
+            visited.add(nearest_node)
+            current_weight += node_weight[nearest_node]
+            current_node = nearest_node
+
+        each_distance += nodex[current_node] + nodey[current_node]  # 返程距离
+        current_node = 0
+        route.append(0)
+
+    delivery_distances.append(each_distance)
+    routes.append(route)
+
+print(f"配送员配送路线：{routes}")
+print(f"配送员配送距离:{delivery_distances}")
+
+# 将路线保存到CSV文件
+with open('line1.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(routes)
+
+# 使用Matplotlib绘制每个配送员的路线
+for i, route in enumerate(routes):
+    x = [nodex[node] for node in route]
+    y = [nodey[node] for node in route]
+    plt.plot(x, y, marker='o', label=f'配送员 {i + 1}')
+    for j in range(len(route)):
+        plt.text(x[j], y[j], str(route[j]))
+
+plt.xlabel('X 坐标')
+plt.ylabel('Y 坐标')
+plt.title('配送员路线图')
+plt.legend()
+plt.show()
